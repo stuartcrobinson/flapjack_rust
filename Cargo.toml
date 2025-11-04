@@ -1,0 +1,61 @@
+# [package]
+# name = "tantivy_multitenancy_test"
+# version = "0.1.0"
+# edition = "2021"
+
+[package]
+name = "flapjack_rust"
+version = "0.1.0"
+edition = "2021"
+
+# Main binary (your existing main.rs)
+[[bin]]
+name = "flapjack_rust"
+path = "src/main.rs"
+
+# LMDB test binary
+[[bin]]
+name = "lmdb_test"
+path = "src/bin/lmdb_test.rs"
+
+[[bin]]
+name = "fst_overhead_test"
+path = "src/bin/fst_overhead_test.rs"
+
+[[bin]]
+name = "fst_overhead_test_2"
+path = "src/bin/fst_overhead_test_2.rs"
+
+[[bin]]
+name = "write_latency_test"
+path = "src/bin/write_latency_test.rs"
+
+[[bin]]
+name = "mmap_demand_test"
+path = "src/bin/mmap_demand_test.rs"
+
+
+[dependencies]
+tantivy = "0.22"
+serde_json = "1.0"
+rand = "0.8"
+
+lmdb = "0.8"
+# rand = "0.8"
+
+libc = "0.2"
+fst = "0.4"
+# Add to Cargo.toml [dependencies]
+mach2 = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+
+
+# [package]
+# name = "flapjack_rust"
+# version = "0.1.0"
+# edition = "2024"
+
+# [dependencies]
