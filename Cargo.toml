@@ -71,12 +71,29 @@ path = "src/bin/nov4_810pm/concurrent_read_test.rs"
 name = "realistic_size_test"
 path = "src/bin/nov4_810pm/realistic_size_test.rs"
 
+[[bin]]
+name = "bm25_memory_test"
+path = "src/bin/nov4_10pm/bm25_memory_test.rs"
+
+[[bin]]
+name = "bm25_correctness_test"
+path = "src/bin/nov4_10pm/bm25_correctness_test.rs"
+
+[[bin]]
+name = "bm25_query_perf_test"
+path = "src/bin/nov4_10pm/bm25_query_perf_test.rs"
+
 [dependencies]
 tantivy = "0.22"
 serde_json = "1.0"
 rand = "0.8"
 lmdb = "0.8"
 fst = "0.4"
+heed = "0.20"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+byteorder = "1.5"
+tempfile = "3.8"
 # Add to Cargo.toml [dependencies]
 # mach2 = "0.4"
 
