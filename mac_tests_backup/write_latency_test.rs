@@ -6,19 +6,47 @@ use std::time::Instant;
 use std::thread;
 use std::sync::Arc;
 
-fn get_rss_mb() -> Option<f64> {
-    if let Ok(content) = std::fs::read_to_string("/proc/self/status") {
-        for line in content.lines() {
-            if line.starts_with("VmRSS:") {
-                if let Some(kb_str) = line.split_whitespace().nth(1) {
-                    if let Ok(kb) = kb_str.parse::<f64>() {
-                        return Some(kb / 1024.0);
+fn get_rss_mb() -> f64 {
+    #[cfg(target_os = "macos")]
+    {
+        use mach2::mach_types::task_info_t;
+        use mach2::task::{task_info, TASK_VM_INFO};
+        use mach2::task_info::{task_vm_info, TASK_VM_INFO_COUNT};
+        use mach2::traps::mach_task_self;
+        use std::mem;
+
+        unsafe {
+            let mut info: task_vm_info = mem::zeroed();
+            let mut count = TASK_VM_INFO_COUNT;
+            let result = task_info(
+                mach_task_self(),
+                TASK_VM_INFO,
+                &mut info as *mut task_vm_info as task_info_t,
+                &mut count,
+            );
+            if result == 0 {
+                return info.phys_footprint as f64 / 1024.0 / 1024.0;
+            }
+        }
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Linux fallback - read from /proc/self/status
+        if let Ok(content) = std::fs::read_to_string("/proc/self/status") {
+            for line in content.lines() {
+                if line.starts_with("VmRSS:") {
+                    if let Some(kb_str) = line.split_whitespace().nth(1) {
+                        if let Ok(kb) = kb_str.parse::<f64>() {
+                            return kb / 1024.0;
+                        }
                     }
                 }
             }
         }
     }
-    None
+    
+    0.0
 }
 
 fn create_schema() -> Schema {
@@ -119,7 +147,7 @@ fn main() -> tantivy::Result<()> {
         let num_tenants = 10;
         let writes_per_tenant = 50;
         
-        let base_rss = get_rss_mb().unwrap_or(0.0);
+        let base_rss = get_rss_mb();
         
         let handles: Vec<_> = (0..num_tenants)
             .map(|tenant_id| {
@@ -178,10 +206,10 @@ fn main() -> tantivy::Result<()> {
         println!("    P95: {}ms", p95);
         println!("    P99: {}ms", p99);
         
-        let after_rss = get_rss_mb().unwrap_or(0.0);
-        if base_rss > 0.0 && after_rss > 0.0 {
-            println!("  RSS: {:.1} MB → {:.1} MB", base_rss, after_rss);
-            println!("  Per-tenant overhead: {:.1} MB", (after_rss - base_rss) / num_tenants as f64);
+        let after_rss = get_rss_mb();
+        if let (Some(before), Some(after)) = (base_rss, after_rss) {
+            println!("  RSS: {:.1} MB → {:.1} MB", before, after);
+            println!("  Per-tenant overhead: {:.1} MB", (after - before) / num_tenants as f64);
         }
         println!();
     }

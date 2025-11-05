@@ -1,43 +1,21 @@
-use lmdb::{Database, Environment, Transaction, WriteFlags};
+use lmdb::{Cursor, Database, Environment, Transaction, WriteFlags};
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
 
-fn get_rss_mb() -> f64 {
-    #[cfg(target_os = "macos")]
-    {
-        use std::process::Command;
-        
-        let output = Command::new("ps")
-            .args(&["-o", "rss=", "-p"])
-            .arg(std::process::id().to_string())
-            .output();
-        
-        if let Ok(output) = output {
-            if let Ok(s) = String::from_utf8(output.stdout) {
-                if let Ok(kb) = s.trim().parse::<f64>() {
-                    return kb / 1024.0;
-                }
-            }
-        }
-    }
-    
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(content) = std::fs::read_to_string("/proc/self/status") {
-            for line in content.lines() {
-                if line.starts_with("VmRSS:") {
-                    if let Some(kb_str) = line.split_whitespace().nth(1) {
-                        if let Ok(kb) = kb_str.parse::<f64>() {
-                            return kb / 1024.0;
-                        }
+fn get_rss_mb() -> Option<f64> {
+    if let Ok(content) = std::fs::read_to_string("/proc/self/status") {
+        for line in content.lines() {
+            if line.starts_with("VmRSS:") {
+                if let Some(kb_str) = line.split_whitespace().nth(1) {
+                    if let Ok(kb) = kb_str.parse::<f64>() {
+                        return Some(kb / 1024.0);
                     }
                 }
             }
         }
     }
-    
-    0.0
+    None
 }
 
 fn generate_product(id: u32) -> String {
@@ -82,7 +60,11 @@ fn main() {
     let docs_per_tenant = 10_000;
     
     let rss_baseline = get_rss_mb();
-    println!("A. Baseline RSS: {:.1} MB", rss_baseline);
+    if let Some(rss) = rss_baseline {
+        println!("A. Baseline RSS: {:.1} MB", rss);
+    } else {
+        println!("A. Baseline RSS: unavailable");
+    }
     
     {
         let env = Environment::new()
@@ -113,15 +95,34 @@ fn main() {
             }
         }
         
-        let rss_after_write = get_rss_mb();
-        println!("B. RSS after writing 20 DBs: {:.1} MB (+{:.1})", 
-                 rss_after_write, rss_after_write - rss_baseline);
+        if let Some(rss_after_write) = get_rss_mb() {
+            let delta = rss_baseline.map(|b| rss_after_write - b);
+            if let Some(d) = delta {
+                println!("B. RSS after writing 20 DBs: {:.1} MB (+{:.1})", rss_after_write, d);
+            } else {
+                println!("B. RSS after writing 20 DBs: {:.1} MB", rss_after_write);
+            }
+        }
     }
     
     thread::sleep(Duration::from_secs(2));
     let rss_after_drop = get_rss_mb();
-    println!("C. RSS after drop + sleep: {:.1} MB (Δ from baseline: {:.1})", 
-             rss_after_drop, rss_after_drop - rss_baseline);
+    if let (Some(drop), Some(base)) = (rss_after_drop, rss_baseline) {
+        println!("C. RSS after drop + sleep: {:.1} MB (Δ from baseline: {:.1})", drop, drop - base);
+    }
+    
+    // Disk size validation
+    if let Ok(output) = std::process::Command::new("du")
+        .args(&["-sb", path])
+        .output() {
+        if let Ok(s) = String::from_utf8(output.stdout) {
+            if let Some(size_str) = s.split_whitespace().next() {
+                if let Ok(bytes) = size_str.parse::<u64>() {
+                    println!("   Disk usage: {:.1} MB", bytes as f64 / 1024.0 / 1024.0);
+                }
+            }
+        }
+    }
     
     let env = Environment::new()
         .set_max_dbs(tenant_count)
@@ -130,16 +131,38 @@ fn main() {
         .unwrap();
     
     let rss_after_reopen = get_rss_mb();
-    println!("D. RSS after reopening env: {:.1} MB (Δ from drop: {:.1})", 
-             rss_after_reopen, rss_after_reopen - rss_after_drop);
+    if let (Some(reopen), Some(drop)) = (rss_after_reopen, rss_after_drop) {
+        println!("D. RSS after reopening env: {:.1} MB (Δ from drop: {:.1})", reopen, reopen - drop);
+    }
     
     let dbs: Vec<Database> = (0..tenant_count)
         .map(|i| env.open_db(Some(&format!("tenant_{}_terms", i))).unwrap())
         .collect();
     
+    println!("\n=== Index Statistics ===");
+    for (i, db) in dbs.iter().enumerate() {
+        let txn = env.begin_ro_txn().unwrap();
+        let mut cursor = txn.open_ro_cursor(*db).unwrap();
+        
+        let mut term_count = 0;
+        let mut total_postings_bytes = 0;
+        
+        for (_key, val) in cursor.iter() {
+            term_count += 1;
+            total_postings_bytes += val.len();
+        }
+        
+        if i < 3 {
+            println!("Tenant {}: {} unique terms, {:.1} KB postings data", 
+                     i, term_count, total_postings_bytes as f64 / 1024.0);
+        }
+    }
+    println!();
+    
     let rss_after_handles = get_rss_mb();
-    println!("E. RSS after opening 20 DB handles: {:.1} MB (Δ from reopen: {:.1})", 
-             rss_after_handles, rss_after_handles - rss_after_reopen);
+    if let (Some(handles), Some(reopen)) = (rss_after_handles, rss_after_reopen) {
+        println!("E. RSS after opening 20 DB handles: {:.1} MB (Δ from reopen: {:.1})", handles, handles - reopen);
+    }
     
     {
         let txn = env.begin_ro_txn().unwrap();
@@ -153,8 +176,9 @@ fn main() {
     }
     
     let rss_after_first_query = get_rss_mb();
-    println!("F. RSS after querying DB 0 only: {:.1} MB (Δ from handles: {:.1})", 
-             rss_after_first_query, rss_after_first_query - rss_after_handles);
+    if let (Some(first), Some(handles)) = (rss_after_first_query, rss_after_handles) {
+        println!("F. RSS after querying DB 0 only: {:.1} MB (Δ from handles: {:.1})", first, first - handles);
+    }
     
     {
         let txn = env.begin_ro_txn().unwrap();
@@ -170,32 +194,39 @@ fn main() {
     }
     
     let rss_after_all_queries = get_rss_mb();
-    println!("G. RSS after querying all 20 DBs: {:.1} MB (Δ from first: {:.1})", 
-             rss_after_all_queries, rss_after_all_queries - rss_after_first_query);
+    if let (Some(all), Some(first)) = (rss_after_all_queries, rss_after_first_query) {
+        println!("G. RSS after querying all 20 DBs: {:.1} MB (Δ from first: {:.1})", all, all - first);
+    }
     
     println!("\n=== Analysis ===");
     
-    let handle_overhead = rss_after_handles - rss_after_reopen;
-    let first_db_working_set = rss_after_first_query - rss_after_handles;
-    let remaining_dbs_working_set = rss_after_all_queries - rss_after_first_query;
-    
-    println!("Opening DB handles overhead: {:.1} MB", handle_overhead);
-    println!("First DB working set: {:.1} MB", first_db_working_set);
-    println!("Remaining 19 DBs working set: {:.1} MB", remaining_dbs_working_set);
-    println!("Avg working set per DB: {:.1} MB", 
-             (first_db_working_set + remaining_dbs_working_set) / 20.0);
-    
-    if handle_overhead < 5.0 && first_db_working_set > 2.0 {
-        println!("\n✓ mmap lazy-loading WORKS:");
-        println!("  - Opening handles doesn't fault pages (<5 MB overhead)");
-        println!("  - Querying faults pages (>{:.1} MB per DB)", first_db_working_set);
-        println!("  - Inactive tenants cost ~0 MB RAM");
-    } else if handle_overhead > 50.0 {
-        println!("\n✗ mmap PREFAULTING detected:");
-        println!("  - Opening handles loaded {:.1} MB", handle_overhead);
-        println!("  - All data resident regardless of access");
-        println!("  - Density argument FAILS");
+    if let (Some(handles), Some(reopen), Some(first), Some(all)) = 
+        (rss_after_handles, rss_after_reopen, rss_after_first_query, rss_after_all_queries) {
+        
+        let handle_overhead = handles - reopen;
+        let first_db_working_set = first - handles;
+        let remaining_dbs_working_set = all - first;
+        
+        println!("Opening DB handles overhead: {:.1} MB", handle_overhead);
+        println!("First DB working set: {:.1} MB", first_db_working_set);
+        println!("Remaining 19 DBs working set: {:.1} MB", remaining_dbs_working_set);
+        println!("Avg working set per DB: {:.1} MB", 
+                 (first_db_working_set + remaining_dbs_working_set) / 20.0);
+        
+        if handle_overhead < 5.0 && first_db_working_set > 2.0 {
+            println!("\n✓ mmap lazy-loading WORKS:");
+            println!("  - Opening handles doesn't fault pages (<5 MB overhead)");
+            println!("  - Querying faults pages (>{:.1} MB per DB)", first_db_working_set);
+            println!("  - Inactive tenants cost ~0 MB RAM");
+        } else if handle_overhead > 50.0 {
+            println!("\n✗ mmap PREFAULTING detected:");
+            println!("  - Opening handles loaded {:.1} MB", handle_overhead);
+            println!("  - All data resident regardless of access");
+            println!("  - Density argument FAILS");
+        } else {
+            println!("\n⚠ Ambiguous results");
+        }
     } else {
-        println!("\n⚠ Ambiguous results - need Linux test");
+        println!("RSS measurements incomplete");
     }
 }

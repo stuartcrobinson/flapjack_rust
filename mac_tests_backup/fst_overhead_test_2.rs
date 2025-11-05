@@ -1,19 +1,51 @@
-use lmdb::{Cursor, Environment, Transaction, WriteFlags};
+// src/bin/fst_overhead_test.rs
+use lmdb::{Database, Environment, Transaction, WriteFlags};
 use std::collections::HashMap;
 
-fn get_rss_mb() -> Option<f64> {
-    if let Ok(content) = std::fs::read_to_string("/proc/self/status") {
-        for line in content.lines() {
-            if line.starts_with("VmRSS:") {
-                if let Some(kb_str) = line.split_whitespace().nth(1) {
-                    if let Ok(kb) = kb_str.parse::<f64>() {
-                        return Some(kb / 1024.0);
+// Add to Cargo.toml dependencies:
+// fst = "0.4"
+
+fn get_rss_mb() -> f64 {
+    #[cfg(target_os = "macos")]
+    {
+        use mach2::mach_types::task_info_t;
+        use mach2::task::{task_info, TASK_VM_INFO};
+        use mach2::task_info::{task_vm_info, TASK_VM_INFO_COUNT};
+        use mach2::traps::mach_task_self;
+        use std::mem;
+
+        unsafe {
+            let mut info: task_vm_info = mem::zeroed();
+            let mut count = TASK_VM_INFO_COUNT;
+            let result = task_info(
+                mach_task_self(),
+                TASK_VM_INFO,
+                &mut info as *mut task_vm_info as task_info_t,
+                &mut count,
+            );
+            if result == 0 {
+                return info.phys_footprint as f64 / 1024.0 / 1024.0;
+            }
+        }
+    }
+    
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Linux fallback - read from /proc/self/status
+        if let Ok(content) = std::fs::read_to_string("/proc/self/status") {
+            for line in content.lines() {
+                if line.starts_with("VmRSS:") {
+                    if let Some(kb_str) = line.split_whitespace().nth(1) {
+                        if let Ok(kb) = kb_str.parse::<f64>() {
+                            return kb / 1024.0;
+                        }
                     }
                 }
             }
         }
     }
-    None
+    
+    0.0
 }
 
 fn generate_product(id: u32) -> String {
@@ -33,7 +65,7 @@ fn tokenize(text: &str) -> Vec<String> {
 }
 
 fn build_index(doc_count: u32) -> HashMap<String, Vec<u32>> {
-    let mut index: HashMap<String, Vec<u32>> = HashMap::new();
+    let mut index = HashMap::new();
     for doc_id in 0..doc_count {
         for term in tokenize(&generate_product(doc_id)) {
             index.entry(term).or_default().push(doc_id);
@@ -52,6 +84,7 @@ fn main() {
     let tenant_count = 20;
     let docs_per_tenant = 10_000;
     
+    // Phase 1: Baseline (no FST)
     println!("Phase 1: Baseline LMDB storage (term strings as keys)");
     
     let env = Environment::new()
@@ -77,6 +110,7 @@ fn main() {
         dbs.push(db);
     }
     
+    // Query all to ensure working set resident
     {
         let txn = env.begin_ro_txn().unwrap();
         for db in &dbs {
@@ -87,11 +121,7 @@ fn main() {
     }
     
     let rss_baseline = get_rss_mb();
-    if let Some(rss) = rss_baseline {
-        println!("Baseline RSS (20 DBs, all queried): {:.1} MB\n", rss);
-    } else {
-        println!("Baseline RSS: unavailable\n");
-    }
+    println!("Baseline RSS (20 DBs, all queried): {:.1} MB\n", rss_baseline);
     
     println!("Phase 2: Adding FST (term → ordinal mapping)");
     
@@ -150,23 +180,18 @@ fn main() {
     }
     
     let rss_with_fst = get_rss_mb();
+    let fst_overhead = rss_with_fst - rss_baseline;
     
     println!("\n=== Results ===");
-    if let (Some(baseline), Some(with_fst)) = (rss_baseline, rss_with_fst) {
-        let fst_overhead = with_fst - baseline;
-        
-        println!("LMDB-only: {:.1} MB / 20 = {:.1} MB/tenant", baseline, baseline / 20.0);
-        println!("With FST: {:.1} MB / 20 = {:.1} MB/tenant", with_fst, with_fst / 20.0);
-        println!("FST overhead: {:.1} MB total = {:.1} MB/tenant", fst_overhead, fst_overhead / 20.0);
-        
-        if fst_overhead / 20.0 < 5.0 {
-            println!("\n✓ FST overhead acceptable (<5 MB/tenant)");
-        } else if fst_overhead / 20.0 < 10.0 {
-            println!("\n⚠ FST overhead marginal (5-10 MB/tenant)");
-        } else {
-            println!("\n✗ FST overhead high (>10 MB/tenant)");
-        }
+    println!("LMDB-only: {:.1} MB / 20 = {:.1} MB/tenant", rss_baseline, rss_baseline / 20.0);
+    println!("With FST: {:.1} MB / 20 = {:.1} MB/tenant", rss_with_fst, rss_with_fst / 20.0);
+    println!("FST overhead: {:.1} MB total = {:.1} MB/tenant", fst_overhead, fst_overhead / 20.0);
+    
+    if fst_overhead / 20.0 < 5.0 {
+        println!("\n✓ FST overhead acceptable (<5 MB/tenant)");
+    } else if fst_overhead / 20.0 < 10.0 {
+        println!("\n⚠ FST overhead marginal (5-10 MB/tenant)");
     } else {
-        println!("RSS measurements incomplete");
+        println!("\n✗ FST overhead high (>10 MB/tenant)");
     }
 }

@@ -1,5 +1,11 @@
 <!-- https://claude.ai/chat/cd81bc76-aee0-4d5d-a89a-4d6ea2b387ec -->
 
+<!-- stuart@Stuarts-MBP ~/r/flapjack_rust (main)> fswatch -o /Users/stuart/repos/flapjack_rust | xargs -n1 -I{} ~/sync-to-ec2.sh -->
+<!-- stuart@Stuarts-MBP ~/r/flapjack_rust (main)> ~/sync-to-ec2.sh -->
+
+sync stuff:
+https://claude.ai/chat/e1101ecd-2d84-42c8-a109-915ed0983dd4
+
 # Tantivy Multi-Tenancy Viability Test
 
 https://claude.ai/chat/cd81bc76-aee0-4d5d-a89a-4d6ea2b387ec

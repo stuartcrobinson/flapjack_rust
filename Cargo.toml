@@ -34,19 +34,51 @@ path = "src/bin/write_latency_test.rs"
 name = "mmap_demand_test"
 path = "src/bin/mmap_demand_test.rs"
 
+[[bin]]
+name = "selective_fault_test"
+path = "src/bin/selective_fault_test.rs"
+
+[[bin]]
+name = "write_batch_scaling_test"
+path = "src/bin/write_batch_scaling_test.rs"
+
+[[bin]]
+name = "sort_test"
+path = "src/bin/sort_test.rs"
+
+[[bin]]
+name = "fst_overhead_test_clean"
+path = "src/bin/fst_overhead_test_clean.rs"
+
+# Add these three entries to your [[bin]] sections in Cargo.toml:
+
+[[bin]]
+name = "separate_env_memory_test"
+path = "src/bin/nov4_8pm/separate_env_memory_test.rs"
+
+[[bin]]
+name = "sequential_commit_test"
+path = "src/bin/nov4_8pm/sequential_commit_test.rs"
+
+[[bin]]
+name = "migration_copy_test"
+path = "src/bin/nov4_8pm/migration_copy_test.rs"
+[[bin]]
+name = "concurrent_read_test"
+path = "src/bin/nov4_810pm/concurrent_read_test.rs"
+
+[[bin]]
+name = "realistic_size_test"
+path = "src/bin/nov4_810pm/realistic_size_test.rs"
 
 [dependencies]
 tantivy = "0.22"
 serde_json = "1.0"
 rand = "0.8"
-
 lmdb = "0.8"
-# rand = "0.8"
-
-libc = "0.2"
 fst = "0.4"
 # Add to Cargo.toml [dependencies]
-mach2 = "0.4"
+# mach2 = "0.4"
 
 [profile.release]
 opt-level = 3
