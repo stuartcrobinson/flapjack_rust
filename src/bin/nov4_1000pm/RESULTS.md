@@ -282,3 +282,5 @@ IDF edge case in tiny corpus. Formula: `ln((N - df + 0.5) / (df + 0.5) + 1)`
 - Pricing: $1-2/tenant (undercut Algolia 50-80%)
 
 **Validation:** These tests confirm infrastructure and cost model. Feature validation (filters, sorts, faceting) is Week 2-4 priority.
+
+https://claude.ai/chat/6ab3257a-d506-467f-b8a6-fb952ae6ac5a

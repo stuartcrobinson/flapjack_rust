@@ -83,6 +83,18 @@ path = "src/bin/nov4_10pm/bm25_correctness_test.rs"
 name = "bm25_query_perf_test"
 path = "src/bin/nov4_10pm/bm25_query_perf_test.rs"
 
+[[bin]]
+name = "write_amplification_bench"
+path = "src/bin/nov4_11pm/write_amplification_bench.rs"
+
+[[bin]]
+name = "topk_retrieval_bench"
+path = "src/bin/nov4_11pm/topk_retrieval_bench.rs"
+
+[[bin]]
+name = "filter_selectivity_test"
+path = "src/bin/nov4_11pm/filter_selectivity_test.rs"
+
 [dependencies]
 tantivy = "0.22"
 serde_json = "1.0"
@@ -96,6 +108,7 @@ byteorder = "1.5"
 tempfile = "3.8"
 # Add to Cargo.toml [dependencies]
 # mach2 = "0.4"
+# byteorder = "1.5"
 
 [profile.release]
 opt-level = 3
