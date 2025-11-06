@@ -8,6 +8,11 @@ https://claude.ai/chat/920f8d44-7c3f-4b08-8f04-cec643c2539f
 https://claude.ai/chat/b66ac224-305b-489b-b84d-b229d08c4797
 https://claude.ai/chat/d0d80d4b-70dd-4cc1-aefb-e24487de8627
 
+https://claude.ai/chat/717b39f0-a420-412f-92ad-0baa19f16bfe
+
+https://claude.ai/chat/1b378ed0-9958-467b-9027-59108db2f966
+https://claude.ai/chat/39fc6aee-7c0f-47bf-95c3-60b2eacbddc4
+
 ## Valid Correction on Free Tier Support
 
 You're right—no support for free = no support cost. Revised math:

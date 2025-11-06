@@ -95,6 +95,18 @@ path = "src/bin/nov4_11pm/topk_retrieval_bench.rs"
 name = "filter_selectivity_test"
 path = "src/bin/nov4_11pm/filter_selectivity_test.rs"
 
+[[bin]]
+name = "tantivy_batch_density_test"
+path = "src/bin/nov5_0630pm/tantivy_batch_density_test.rs"
+
+[[bin]]
+name = "lmdb_replication_cost_test"
+path = "src/bin/nov5_0630pm/lmdb_replication_cost_test.rs"
+
+[[bin]]
+name = "lmdb_tantivy_migration_test"
+path = "src/bin/nov5_0630pm/lmdb_tantivy_migration_test.rs"
+
 [dependencies]
 tantivy = "0.22"
 serde_json = "1.0"
@@ -109,6 +121,7 @@ tempfile = "3.8"
 # Add to Cargo.toml [dependencies]
 # mach2 = "0.4"
 # byteorder = "1.5"
+
 
 [profile.release]
 opt-level = 3
