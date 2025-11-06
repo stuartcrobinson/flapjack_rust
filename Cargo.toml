@@ -107,6 +107,42 @@ path = "src/bin/nov5_0630pm/lmdb_replication_cost_test.rs"
 name = "lmdb_tantivy_migration_test"
 path = "src/bin/nov5_0630pm/lmdb_tantivy_migration_test.rs"
 
+[[bin]]
+name = "replication_lag_test"
+path = "src/bin/nov6_1030am/replication_lag_test.rs"
+
+[[bin]]
+name = "tantivy_memory_density_test"
+path = "src/bin/nov6_1040am/tantivy_memory_density_test.rs"
+
+[[bin]]
+name = "tantivy_segment_replication_cost"
+path = "src/bin/nov6_1040am/tantivy_segment_replication_cost.rs"
+
+
+[[bin]]
+name = "tantivy_sequential_batch_test"
+path = "src/bin/nov6_1040am/tantivy_sequential_batch_test.rs"
+
+
+[[bin]]
+name = "tantivy_ssh_replication_test"
+path = "src/bin/nov6_1040am/tantivy_ssh_replication_test.rs"
+
+[[bin]]
+name = "tantivy_wireguard_replication_test"
+path = "src/bin/nov6_1040am/tantivy_wireguard_replication_test.rs"
+
+[[bin]]
+name = "tantivy_wireguard_batch_replication_test"
+path = "src/bin/nov6_1040am/tantivy_wireguard_batch_replication_test.rs"
+
+[[bin]]
+name = "tantivy_filter_selectivity_test"
+path = "src/bin/nov6_1500pm/tantivy_filter_selectivity_test.rs"
+
+# tantivy_memory_density_test
+
 [dependencies]
 tantivy = "0.22"
 serde_json = "1.0"
@@ -121,6 +157,7 @@ tempfile = "3.8"
 # Add to Cargo.toml [dependencies]
 # mach2 = "0.4"
 # byteorder = "1.5"
+libc = "0.2"
 
 
 [profile.release]
