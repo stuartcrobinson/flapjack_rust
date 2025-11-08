@@ -141,6 +141,58 @@ path = "src/bin/nov6_1040am/tantivy_wireguard_batch_replication_test.rs"
 name = "tantivy_filter_selectivity_test"
 path = "src/bin/nov6_1500pm/tantivy_filter_selectivity_test.rs"
 
+[[bin]]
+name = "faceting_viability_test"
+path = "src/bin/nov6_1530pm/faceting_viability_test.rs"
+
+[[bin]]
+name = "query_planner_threshold_test"
+path = "src/bin/nov6_1530pm/query_planner_threshold_test.rs"
+
+[[bin]]
+name = "fast_field_memory_test"
+path = "src/bin/nov6_1530pm/fast_field_memory_test.rs"
+
+[[bin]]
+name = "filter_isolation_test"
+path = "src/bin/nov6_1530pm/filter_isolation_test.rs"
+
+[[bin]]
+name = "realistic_density_test"
+path = "src/bin/nov6_1530pm/realistic_density_test.rs"
+
+[[bin]]
+name = "index_lifecycle_test"
+path = "src/bin/nov7_1530pm/index_lifecycle_test.rs"
+
+[[bin]]
+name = "index_lifecycle_test_v2"
+path = "src/bin/nov7_1530pm/index_lifecycle_test_v2.rs"
+
+[[bin]]
+name = "query_working_set_test"
+path = "src/bin/nov7_1530pm/query_working_set_test.rs"
+
+[[bin]]
+name = "query_working_set_test_v2"
+path = "src/bin/nov7_1530pm/query_working_set_test_v2.rs"
+
+
+
+
+[[bin]]
+name = "test_facet_multipath"
+path = "src/bin/nov7_1900pm/test_facet_multipath.rs"
+
+[[bin]]
+name = "test_hashmap_bug"
+path = "src/bin/nov7_1900pm/test_hashmap_bug.rs"
+
+[[bin]]
+name = "test_comprehensive_facets"
+path = "src/bin/nov7_1900pm/test_comprehensive_facets.rs"
+
+
 # tantivy_memory_density_test
 
 [dependencies]

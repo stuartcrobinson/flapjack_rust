@@ -1,4 +1,108 @@
+
+
 https://claude.ai/chat/a53df619-c47f-42bb-9b07-d7f13dec5480
+
+# Critical Outstanding Questions
+
+Before architecture design:
+
+## 1. Initial Scale Target
+**What's your launch scale assumption?**
+- Tenants: 100? 1K? 10K?
+- Docs/tenant: 10K? 100K? 1M?
+- QPS/tenant: 1? 10? 100?
+
+**Why this matters:** Determines if you need distributed coordination from day 1 or can start single-node with abstraction for later sharding.
+
+## 2. Global Replication Strategy
+**Synchronous or async?**
+- Sync: Write waits for N replicas to ack (strong consistency, high latency)
+- Async: Primary acks immediately, replicas catch up (eventual consistency, low latency)
+
+Your tests measured async segment sync (batching, 1-4s lag). Is that acceptable for launch, or do you need read-after-write guarantees?
+
+## 3. Multi-Region Write Model
+**Single-writer or multi-primary?**
+- Single-writer: All writes go to one region, replicate out (simple, no conflicts)
+- Multi-primary: Accept writes in any region (complex, needs conflict resolution)
+
+Tantivy is single-writer by design. Global multi-primary would require distributed consensus (Raft/Paxos) on top.
+
+## 4. Tenant Isolation Guarantee
+**Noisy neighbor tolerance:**
+- Hard isolation: Tenant A's query load cannot slow Tenant B (separate processes/containers)
+- Soft isolation: Shared process, but resource limits (CPU/memory quotas)
+- No isolation: Best-effort scheduling (cheapest, simplest)
+
+Your tests assume shared process (400 tenants/node). Is that locked in, or do enterprise customers need hard isolation?
+
+## 5. Migration Downtime Acceptable?
+**When moving tenant between nodes:**
+- Zero downtime: Dual-write during migration (complex)
+- Brief unavailability: 100ms routing update (simpler)
+- Scheduled maintenance: 1-5min window (simplest)
+
+Your 38ms copy test suggests zero-downtime is feasible, but is it required for MVP?
+
+---
+
+# Assumed Answers (Challenge These)
+
+Based on your tests and context, I'm assuming:
+
+1. **Launch scale:** 100-500 tenants, 10K-100K docs/tenant, <10 QPS/tenant avg
+2. **Replication:** Async, eventual consistency (1-4s lag acceptable)
+3. **Writes:** Single-writer primary, read replicas in other regions
+4. **Isolation:** Soft (shared process, monitor but don't enforce hard limits at MVP)
+5. **Migration:** Brief unavailability acceptable (<1s routing gap)
+
+**If any of these are wrong, the architecture changes significantly.**
+
+---
+
+# Abstraction Boundaries (Where to Swap Tech Later)
+
+## Storage Layer
+```rust
+trait TenantStorage {
+    fn write_batch(&mut self, docs: Vec<Document>) -> Result<()>;
+    fn read_segment(&self, segment_id: SegmentId) -> Result<SegmentData>;
+    fn list_segments(&self) -> Result<Vec<SegmentId>>;
+    fn delete(&mut self, doc_id: DocId) -> Result<()>;
+}
+```
+**Why:** Tantivy now, but if memory/CPU becomes issue, could swap LMDB for hot data + Tantivy for cold, or S3 for segments.
+
+## Replication Transport
+```rust
+trait ReplicationTransport {
+    fn send_segment(&self, replica: NodeId, segment: &[u8]) -> Result<()>;
+    fn receive_segments(&self) -> Stream<(TenantId, SegmentData)>;
+}
+```
+**Why:** WireGuard+rsync now, but could swap to QUIC, direct TCP, or S3-based pull model if bandwidth becomes bottleneck.
+
+## Tenant Router
+```rust
+trait TenantRouter {
+    fn resolve(&self, tenant_id: TenantId) -> Result<NodeAddress>;
+    fn migrate(&mut self, tenant_id: TenantId, to: NodeAddress) -> Result<()>;
+}
+```
+**Why:** In-memory map now, but needs distributed coordination (etcd/Consul) for multi-node orchestration.
+
+## Query Planner
+```rust
+trait QueryPlanner {
+    fn plan(&self, query: Query, tenant_meta: &TenantMeta) -> QueryPlan;
+}
+```
+**Why:** Simple heuristics now (filter selectivity), but may need cost-based optimization or ML-based cardinality estimation later.
+
+**DO NOT abstract:** BM25 scoring, tokenization, segment merging (Tantivy internals). Swapping these = rewriting search engine.
+
+
+
 
 # Flapjack Search Engine: Build Plan
 
@@ -416,7 +520,3 @@ Fix: Test faceting aggregation performance in Phase 1. Add batching strategy com
 **Start building Phase 1 now.** 
 
 Core unknowns (faceting architecture, batching strategy, update/merge CPU) won't block basic indexing → search pipeline. You'll discover them naturally when implementing.
-
-**One critical gap:** Query planner threshold (1200 docs) came from LMDB tests with in-memory data structures. **Validate this holds with Tantivy B-tree scans** by running your filter selectivity test from `nov4_1100pm/FINAL_RESULTS.md` but on actual Tantivy indices, not LMDB. Takes 2 hours. If crossover point shifts significantly (e.g., 5000 docs), query planner logic changes.
-
-Otherwise: build, measure, iterate. Testing without production context has diminishing returns.
