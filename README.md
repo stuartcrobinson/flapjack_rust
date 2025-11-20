@@ -1,3 +1,38 @@
+
+this is rsesearch code.  actual implementaiton is here: 
+
+(venv) stuart@Stuarts-MBP ~/r/flapjack202511 (main)> pwd
+/Users/stuart/repos/flapjack202511
+(venv) stuart@Stuarts-MBP ~/r/flapjack202511 (main)> 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <!-- https://claude.ai/chat/cd81bc76-aee0-4d5d-a89a-4d6ea2b387ec -->
 
 <!-- stuart@Stuarts-MBP ~/r/flapjack_rust (main)> fswatch -o /Users/stuart/repos/flapjack_rust | xargs -n1 -I{} ~/sync-to-ec2.sh -->
